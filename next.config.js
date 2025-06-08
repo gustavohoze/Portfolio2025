@@ -4,8 +4,16 @@ const nextConfig = {
   output: 'export',
   images: {
     unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+    ],
   },
-  basePath: '/Portfolio2025',
+  basePath: process.env.NODE_ENV === 'production' ? '/Portfolio2025' : '',
+  assetPrefix: process.env.NODE_ENV === 'production' ? '/Portfolio2025/' : '',
+  trailingSlash: true,
 }
 
 module.exports = nextConfig 
