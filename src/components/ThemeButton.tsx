@@ -25,7 +25,7 @@ export default function ThemeButton({ className = '' }: { className?: string }) 
       <motion.div
         initial={false}
         animate={{
-          rotate: isDark ? 180 : 0,
+          rotate: isDark ? 0 : 180,
           scale: isTransitioning ? 0.8 : 1,
         }}
         transition={{
@@ -34,8 +34,13 @@ export default function ThemeButton({ className = '' }: { className?: string }) 
         }}
       >
         {isDark ? (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+            />
           </svg>
         ) : (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

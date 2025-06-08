@@ -1,11 +1,141 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { useTheme } from './ThemeContext'
 import PageBackground from './PageBackground'
 import ThemeButton from './ThemeButton'
+import gsap from 'gsap'
 
 export default function Contact() {
   const { isDark } = useTheme()
+  const formRef = useRef<HTMLFormElement>(null)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const lineRef = useRef<HTMLDivElement>(null)
+  const subtitleRef = useRef<HTMLParagraphElement>(null)
+  const contactInfoRef = useRef<HTMLDivElement>(null)
+  const socialMediaRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    // GSAP animations
+    const ctx = gsap.context(() => {
+      // Initial setup - move elements out of view
+      gsap.set([titleRef.current, lineRef.current, subtitleRef.current], {
+        y: 50,
+        opacity: 0
+      })
+      
+      gsap.set([formRef.current, contactInfoRef.current, socialMediaRef.current], {
+        y: 100,
+        opacity: 0
+      })
+
+      // Create timeline for entrance animation
+      const tl = gsap.timeline({ defaults: { ease: "power3.out" } })
+
+      // Header animations
+      tl.to(titleRef.current, {
+        y: 0,
+        opacity: 1,
+        duration: 0.8
+      })
+      .to(lineRef.current, {
+        y: 0,
+        opacity: 1,
+        duration: 0.5
+      }, "-=0.4")
+      .to(subtitleRef.current, {
+        y: 0,
+        opacity: 1,
+        duration: 0.5
+      }, "-=0.3")
+
+      // Contact info and social media animations
+      .to(contactInfoRef.current, {
+        y: 0,
+        opacity: 1,
+        duration: 0.8
+      }, "-=0.2")
+      .to(socialMediaRef.current, {
+        y: 0,
+        opacity: 1,
+        duration: 0.8
+      }, "-=0.6")
+
+      // Form animation
+      .to(formRef.current, {
+        y: 0,
+        opacity: 1,
+        duration: 0.8
+      }, "-=0.6")
+
+      // Add hover animations for input fields
+      if (formRef.current) {
+        const inputs = formRef.current.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')
+        inputs.forEach((input) => {
+          input.addEventListener('focus', () => {
+            gsap.to(input, {
+              scale: 1.02,
+              duration: 0.3,
+              ease: "power2.out"
+            })
+          })
+          input.addEventListener('blur', () => {
+            gsap.to(input, {
+              scale: 1,
+              duration: 0.3,
+              ease: "power2.out"
+            })
+          })
+        })
+      }
+
+      // Add hover animations for social media icons
+      if (socialMediaRef.current) {
+        const socialIcons = socialMediaRef.current.querySelectorAll('a')
+        socialIcons.forEach((icon) => {
+          icon.addEventListener('mouseenter', () => {
+            gsap.to(icon, {
+              y: -3,
+              scale: 1.1,
+              duration: 0.3,
+              ease: "power2.out"
+            })
+          })
+          icon.addEventListener('mouseleave', () => {
+            gsap.to(icon, {
+              y: 0,
+              scale: 1,
+              duration: 0.3,
+              ease: "power2.out"
+            })
+          })
+        })
+      }
+
+      // Add hover animations for contact info items
+      if (contactInfoRef.current) {
+        const contactItems = contactInfoRef.current.querySelectorAll('a')
+        contactItems.forEach((item) => {
+          item.addEventListener('mouseenter', () => {
+            gsap.to(item, {
+              x: 5,
+              duration: 0.3,
+              ease: "power2.out"
+            })
+          })
+          item.addEventListener('mouseleave', () => {
+            gsap.to(item, {
+              x: 0,
+              duration: 0.3,
+              ease: "power2.out"
+            })
+          })
+        })
+      }
+    }, formRef)
+
+    return () => ctx.revert() // Cleanup animations
+  }, [])
 
   return (
     <section className={`relative h-screen w-screen ${
@@ -16,17 +146,17 @@ export default function Contact() {
       
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-16">
-          <h2 className={`text-3xl sm:text-4xl font-bold ${
+          <h2 ref={titleRef} className={`text-3xl sm:text-4xl font-bold ${
             isDark ? 'text-white' : 'text-gray-900'
           }`}>
             Get in Touch
           </h2>
-          <div className={`h-1 w-20 mx-auto mt-4 ${
+          <div ref={lineRef} className={`h-1 w-20 mx-auto mt-4 ${
             isDark 
               ? 'bg-gradient-to-r from-cyan-500 to-blue-500' 
               : 'bg-gradient-to-r from-cyan-600 to-blue-600'
           }`} />
-          <p className={`mt-4 text-lg ${
+          <p ref={subtitleRef} className={`mt-4 text-lg ${
             isDark ? 'text-gray-400' : 'text-gray-600'
           }`}>
             Let's work together on your next project
@@ -36,7 +166,7 @@ export default function Contact() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Contact Info */}
           <div className="space-y-6">
-            <div className={`p-6 rounded-lg ${
+            <div ref={contactInfoRef} className={`p-6 rounded-lg ${
               isDark ? 'bg-gray-900/50' : 'bg-white'
             } shadow-xl backdrop-blur-sm`}>
               <h3 className="text-xl font-semibold mb-4">Contact Information</h3>
@@ -60,7 +190,7 @@ export default function Contact() {
               </div>
             </div>
 
-            <div className={`p-6 rounded-lg ${
+            <div ref={socialMediaRef} className={`p-6 rounded-lg ${
               isDark ? 'bg-gray-900/50' : 'bg-white'
             } shadow-xl backdrop-blur-sm`}>
               <h3 className="text-xl font-semibold mb-4">Social Media</h3>
@@ -85,7 +215,7 @@ export default function Contact() {
           </div>
 
           {/* Contact Form */}
-          <form className={`p-6 rounded-lg ${
+          <form ref={formRef} className={`p-6 rounded-lg ${
             isDark ? 'bg-gray-900/50' : 'bg-white'
           } shadow-xl backdrop-blur-sm space-y-6`}>
             <div>
@@ -96,7 +226,7 @@ export default function Contact() {
                   isDark 
                     ? 'bg-gray-800 border-gray-700 focus:border-cyan-500' 
                     : 'bg-white border-gray-300 focus:border-cyan-500'
-                } focus:ring-2 focus:ring-cyan-500/20 outline-none transition-colors`}
+                } focus:ring-2 focus:ring-cyan-500/20 outline-none transition-all duration-300`}
               />
             </div>
             <div>
@@ -107,7 +237,7 @@ export default function Contact() {
                   isDark 
                     ? 'bg-gray-800 border-gray-700 focus:border-cyan-500' 
                     : 'bg-white border-gray-300 focus:border-cyan-500'
-                } focus:ring-2 focus:ring-cyan-500/20 outline-none transition-colors`}
+                } focus:ring-2 focus:ring-cyan-500/20 outline-none transition-all duration-300`}
               />
             </div>
             <div>
@@ -118,7 +248,7 @@ export default function Contact() {
                   isDark 
                     ? 'bg-gray-800 border-gray-700 focus:border-cyan-500' 
                     : 'bg-white border-gray-300 focus:border-cyan-500'
-                } focus:ring-2 focus:ring-cyan-500/20 outline-none transition-colors`}
+                } focus:ring-2 focus:ring-cyan-500/20 outline-none transition-all duration-300`}
               />
             </div>
             <button
