@@ -1,9 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import '../styles/globals.css'
-import { ThemeProvider } from '@/components/ThemeContext'
-import { PageProvider } from '@/components/PageContext'
-import RootLayoutContent from '@/components/RootLayoutContent'
+import ClientProviders from '@/components/ClientProviders'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,13 +18,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body className={inter.className}>
-        <ThemeProvider>
-          <PageProvider>
-            <RootLayoutContent>
-              {children}
-            </RootLayoutContent>
-          </PageProvider>
-        </ThemeProvider>
+        <ClientProviders>
+          {children}
+        </ClientProviders>
       </body>
     </html>
   )

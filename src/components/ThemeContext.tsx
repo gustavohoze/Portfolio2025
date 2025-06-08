@@ -17,31 +17,35 @@ const ThemeContext = createContext<ThemeContextType>({
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Use localStorage to persist theme preference
+  // Initialize with a default value, will be updated after hydration
   const [isDark, setIsDark] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // Initialize theme from localStorage on mount
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
       setIsDark(savedTheme === 'dark');
+    } else {
+      // Check system preference if no saved theme
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDark(prefersDark);
+      localStorage.setItem('theme', prefersDark ? 'dark' : 'light');
     }
+    setMounted(true);
   }, []);
 
   const toggleTheme = useCallback(() => {
-    if (isTransitioning) return; // Prevent double-clicks
+    if (isTransitioning) return;
     setIsTransitioning(true);
     
-    // Update theme
     setIsDark(prev => {
       const newTheme = !prev;
-      // Save to localStorage
       localStorage.setItem('theme', newTheme ? 'dark' : 'light');
       return newTheme;
     });
     
-    // Reset transition state
     setTimeout(() => {
       setIsTransitioning(false);
     }, 400);
@@ -49,12 +53,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Update document class for global theme
   useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    if (mounted) {
+      if (isDark) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
     }
-  }, [isDark]);
+  }, [isDark, mounted]);
 
   return (
     <ThemeContext.Provider value={{ isDark, isTransitioning, toggleTheme }}>
