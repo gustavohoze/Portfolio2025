@@ -17,6 +17,7 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "eslint": "latest",
+    "framer-motion": "^12.16.0",
     "gsap": "latest",
     "next": "latest",
     "react": "latest",
