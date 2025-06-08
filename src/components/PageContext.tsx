@@ -55,13 +55,15 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
   })
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [direction, setDirection] = useState<'up' | 'down' | null>(null)
-  const transitionTimeoutRef = useRef<NodeJS.Timeout>()
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const lastScrollTime = useRef(Date.now())
   const scrollCooldown = 600 // Reduced cooldown for springy animations
 
   // Save current page to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('currentPage', currentPage)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentPage', currentPage)
+    }
   }, [currentPage])
 
   const navigateToPage = useCallback((direction: 'up' | 'down') => {
