@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 
 interface ThemeContextType {
   isDark: boolean;
@@ -17,17 +17,44 @@ const ThemeContext = createContext<ThemeContextType>({
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Use localStorage to persist theme preference
   const [isDark, setIsDark] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  const toggleTheme = useCallback(() => {
-    setIsTransitioning(true);
-    // Theme will be toggled after animation completes in the Hero component
-    setTimeout(() => {
-      setIsDark(prev => !prev);
-      setIsTransitioning(false);
-    }, 1000); // Match this with animation duration
+  // Initialize theme from localStorage on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      setIsDark(savedTheme === 'dark');
+    }
   }, []);
+
+  const toggleTheme = useCallback(() => {
+    if (isTransitioning) return; // Prevent double-clicks
+    setIsTransitioning(true);
+    
+    // Update theme
+    setIsDark(prev => {
+      const newTheme = !prev;
+      // Save to localStorage
+      localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+      return newTheme;
+    });
+    
+    // Reset transition state
+    setTimeout(() => {
+      setIsTransitioning(false);
+    }, 400);
+  }, [isTransitioning]);
+
+  // Update document class for global theme
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDark]);
 
   return (
     <ThemeContext.Provider value={{ isDark, isTransitioning, toggleTheme }}>

@@ -4,33 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { useTheme } from './ThemeContext'
 import { Editor, CodeView, DesignView } from './editor'
-
-// Theme toggle button component
-const ThemeToggle = () => {
-  const { isDark, toggleTheme } = useTheme();
-  
-  return (
-    <button
-      onClick={toggleTheme}
-      className={`fixed top-6 right-6 p-2 rounded-lg transition-all duration-300 z-50 ${
-        isDark 
-          ? 'bg-white/10 hover:bg-white/20' 
-          : 'bg-gray-900/10 hover:bg-gray-900/20'
-      }`}
-      aria-label="Toggle theme"
-    >
-      {isDark ? (
-        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-      ) : (
-        <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-        </svg>
-      )}
-    </button>
-  );
-};
+import PageBackground from './PageBackground'
+import ThemeButton from './ThemeButton'
 
 // Simple seeded random number generator
 const seededRandom = (seed : number) => {
@@ -57,71 +32,6 @@ const CountUp = ({ end, duration = 2 } : { end: number, duration?: number }) => 
 
   return <span ref={countRef}>{end}</span>
 }
-
-const FloatingSquares = () => {
-  const [squares] = useState(() => [
-    { left: '20%', top: '30%', scale: 1.5, angle: 0, delay: 0 },
-    { left: '50%', top: '60%', scale: 1.2, angle: 120, delay: 0.2 },
-    { left: '80%', top: '40%', scale: 0.9, angle: 240, delay: 0.4 }
-  ]);
-
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      // Set initial state
-      gsap.set('.floating-square', {
-        opacity: 0,
-        scale: 0,
-        rotation: 0
-      });
-
-      // Initial fade in and scale animation
-      gsap.to('.floating-square', {
-        opacity: 0.2,
-        scale: 1,
-        duration: 1.5,
-        ease: 'power3.out',
-        stagger: {
-          each: 0.2,
-          from: 'random'
-        }
-      });
-
-      // Continuous floating animation (delayed start)
-      gsap.to('.floating-square', {
-        y: 'random(-50, 50)',
-        x: 'random(-30, 30)',
-        rotation: 'random(-10, 10)',
-        duration: 6,
-        delay: 1.5, // Start after initial animation
-        ease: 'sine.inOut',
-        stagger: {
-          each: 2,
-          repeat: -1,
-          yoyo: true,
-        }
-      });
-    });
-
-    return () => ctx.revert();
-  }, []);
-
-  return (
-    <div className="absolute inset-0 overflow-hidden">
-      {squares.map((square, i) => (
-        <div
-          key={i}
-          className="floating-square absolute w-96 h-96"
-          style={{
-            left: square.left,
-            top: square.top,
-            background: `linear-gradient(${square.angle}deg, rgba(45, 212, 191, 0.15), rgba(59, 130, 246, 0.08))`,
-            transform: `scale(${square.scale})`,
-          }}
-        />
-      ))}
-    </div>
-  );
-};
 
 export default function Hero() {
   const { isDark, isTransitioning } = useTheme();
@@ -156,19 +66,6 @@ export default function Hero() {
   useEffect(() => {
     const ctx = gsap.context(() => {
       // Initial animations remain the same
-      gsap.to('.floating-square', {
-        y: 'random(-50, 50)',
-        x: 'random(-30, 30)',
-        rotation: 'random(-10, 10)',
-        duration: 6,
-        ease: 'sine.inOut',
-        stagger: {
-          each: 2,
-          repeat: -1,
-          yoyo: true,
-        }
-      });
-
       gsap.from('.floating-square', {
         opacity: 0,
         scale: 0,
@@ -313,11 +210,6 @@ export default function Hero() {
 
   return (
     <div ref={heroRef} className="relative min-h-screen overflow-hidden">
-      {/* Theme toggle with highest z-index */}
-      <div className="fixed top-6 right-6 z-[100]">
-        <ThemeToggle />
-      </div>
-
       {/* Main content wrapper */}
       <div
         ref={currentContentRef}
@@ -327,73 +219,11 @@ export default function Hero() {
             : 'bg-gray-50 text-gray-900'
         }`}
       >
+        {/* Add ThemeButton */}
+        <ThemeButton className="fixed top-6 right-6 z-50" />
+
         {/* Background elements */}
-        <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0" 
-            style={{
-              backgroundImage: `radial-gradient(circle at 20% 50%, ${
-                isDark 
-                  ? 'rgba(45, 212, 191, 0.1)' 
-                  : 'rgba(45, 212, 191, 0.15)'
-                } 0%, transparent 50%)`,
-            }}
-          />
-          
-          {/* Diagonal neon line */}
-          <div className="absolute inset-0 overflow-hidden">
-            <div
-              className={`absolute w-[200%] h-1 ${
-                isDark 
-                  ? 'bg-gradient-to-r from-transparent via-teal-500/20 to-transparent' 
-                  : 'bg-gradient-to-r from-transparent via-teal-600/20 to-transparent'
-              } blur-sm transform -rotate-45 -translate-y-1/4 -translate-x-full`}
-              style={{
-                animation: 'moveGradient 8s linear infinite',
-              }}
-            />
-            <div
-              className={`absolute w-[200%] h-px ${
-                isDark 
-                  ? 'bg-gradient-to-r from-transparent via-teal-500/40 to-transparent' 
-                  : 'bg-gradient-to-r from-transparent via-teal-600/40 to-transparent'
-              } transform -rotate-45 -translate-y-1/4 -translate-x-full`}
-              style={{
-                animation: 'moveGradient 8s linear infinite',
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Add keyframes for the gradient animation */}
-        <style jsx>{`
-          @keyframes moveGradient {
-            0% {
-              transform: translate(-100%, -25%) rotate(-45deg);
-            }
-            100% {
-              transform: translate(50%, -25%) rotate(-45deg);
-            }
-          }
-        `}</style>
-
-        {/* Floating Squares */}
-        <div className="z-0">
-          <FloatingSquares />
-        </div>
-
-        {/* Background Grid */}
-        <div className="absolute inset-0 z-0 grid grid-cols-6 grid-rows-6 gap-px opacity-20">
-          {Array.from({ length: 36 }).map((_, i) => (
-            <div 
-              key={i} 
-              className={`grid-item ${
-                isDark 
-                  ? 'bg-gradient-to-br from-teal-500/20' 
-                  : 'bg-gradient-to-br from-teal-500/30'
-                } to-transparent`}
-            />
-          ))}
-        </div>
+        <PageBackground variant="default" />
 
         {/* Main Content */}
         <div className="relative z-10 min-h-screen flex flex-col lg:flex-row items-center justify-between max-w-7xl mx-auto px-4 sm:px-8 lg:px-12">
