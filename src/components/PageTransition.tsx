@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePage } from './PageContext'
 import { useTheme } from './ThemeContext'
@@ -10,10 +10,8 @@ export default function PageTransition({ children }: { children: React.ReactNode
   const { currentPage, isTransitioning, direction, navigateToPage } = usePage()
   const { isDark } = useTheme()
   const containerRef = useRef<HTMLDivElement>(null)
-  
-  // Get next and previous page names
-  const nextPageName = pages[currentPage].next.charAt(0).toUpperCase() + pages[currentPage].next.slice(1)
-  const prevPageName = pages[currentPage].prev.charAt(0).toUpperCase() + pages[currentPage].prev.slice(1)
+  const [showGuide, setShowGuide] = useState(true)
+  const [touchStart, setTouchStart] = useState<number | null>(null)
   
   useEffect(() => {
     const container = containerRef.current
@@ -25,13 +23,14 @@ export default function PageTransition({ children }: { children: React.ReactNode
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault()
       if (Math.abs(e.deltaY) < 30) return
-      
+      setShowGuide(false)
       const direction = e.deltaY > 0 ? 'down' : 'up'
       navigateToPage(direction)
     }
 
     const handleTouchStart = (e: TouchEvent) => {
       touchStartY = e.touches[0].clientY
+      setTouchStart(e.touches[0].clientY)
     }
 
     const handleTouchMove = (e: TouchEvent) => {
@@ -40,6 +39,7 @@ export default function PageTransition({ children }: { children: React.ReactNode
       const distance = touchStartY - touchEndY
 
       if (Math.abs(distance) >= minSwipeDistance) {
+        setShowGuide(false)
         const direction = distance > 0 ? 'down' : 'up'
         navigateToPage(direction)
       }
@@ -49,57 +49,45 @@ export default function PageTransition({ children }: { children: React.ReactNode
     container.addEventListener('touchstart', handleTouchStart)
     container.addEventListener('touchmove', handleTouchMove, { passive: false })
 
+    // Hide guide after 5 seconds
+    const timer = setTimeout(() => setShowGuide(false), 5000)
+
     return () => {
       container.removeEventListener('wheel', handleWheel)
       container.removeEventListener('touchstart', handleTouchStart)
       container.removeEventListener('touchmove', handleTouchMove)
+      clearTimeout(timer)
     }
   }, [navigateToPage])
 
   return (
     <div ref={containerRef} className="fixed inset-0 overflow-hidden">
-      {/* Up Navigation */}
-      <div className="fixed inset-x-0 top-8 z-40 flex justify-center pointer-events-none">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ 
-            opacity: direction === 'up' ? 1 : 0.6,
-            y: 0,
-            scale: direction === 'up' ? 1.05 : 1
-          }}
-          className={`px-4 py-2 rounded-full ${
-            isDark 
-              ? 'bg-gray-800/80 text-gray-200' 
-              : 'bg-white/80 text-gray-800'
-          } backdrop-blur-sm flex items-center gap-2`}
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-          </svg>
-          <span>Scroll up for {prevPageName}</span>
-        </motion.div>
-      </div>
-
-      {/* Down Navigation */}
-      <div className="fixed inset-x-0 bottom-8 z-40 flex justify-center pointer-events-none">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ 
-            opacity: direction === 'down' ? 1 : 0.6,
-            y: 0,
-            scale: direction === 'down' ? 1.05 : 1
-          }}
-          className={`px-4 py-2 rounded-full ${
-            isDark 
-              ? 'bg-gray-800/80 text-gray-200' 
-              : 'bg-white/80 text-gray-800'
-          } backdrop-blur-sm flex items-center gap-2`}
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-          </svg>
-          <span>Scroll down for {nextPageName}</span>
-        </motion.div>
+      {/* Minimal Navigation Dots */}
+      <div className="fixed right-4 sm:right-6 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-2">
+        {Object.entries(pages).map(([pageId]) => (
+          <motion.button
+            key={pageId}
+            onClick={() => {
+              if (currentPage === pageId) return
+              setShowGuide(false)
+              navigateToPage(pageId === pages[currentPage].next ? 'down' : 'up')
+            }}
+            animate={{
+              scale: currentPage === pageId ? 1 : 0.8,
+              opacity: currentPage === pageId ? 1 : 0.3
+            }}
+            whileHover={{
+              scale: 0.9,
+              opacity: 0.8
+            }}
+            className="w-1.5 h-1.5 rounded-full bg-current transition-colors duration-200"
+            style={{
+              backgroundColor: currentPage === pageId 
+                ? (isDark ? 'rgb(139, 92, 246)' : 'rgb(124, 58, 237)') 
+                : (isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)')
+            }}
+          />
+        ))}
       </div>
 
       <AnimatePresence mode="wait" initial={false}>
@@ -107,54 +95,81 @@ export default function PageTransition({ children }: { children: React.ReactNode
           key={currentPage}
           initial={{ 
             opacity: 0,
-            y: direction === 'up' ? 100 : -100
+            y: direction === 'up' ? 50 : -50
           }}
           animate={{ 
             opacity: 1,
             y: 0,
             transition: {
-              duration: 0.4,
+              duration: 0.3,
               ease: [0.25, 0.1, 0.25, 1],
-              opacity: { duration: 0.3 }
+              opacity: { duration: 0.2 }
             }
           }}
           exit={{ 
             opacity: 0,
-            y: direction === 'up' ? -100 : 100,
+            y: direction === 'up' ? -50 : 50,
             transition: {
-              duration: 0.4,
+              duration: 0.3,
               ease: [0.25, 0.1, 0.25, 1],
-              opacity: { duration: 0.25 }
+              opacity: { duration: 0.15 }
             }
           }}
           className="fixed inset-0 will-change-transform transform-gpu z-30"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0
-          }}
         >
           {children}
         </motion.div>
       </AnimatePresence>
 
-      {/* Section Preview Dots */}
-      <div className="fixed right-8 top-1/2 -translate-y-1/2 z-40 flex flex-col items-center gap-3 pointer-events-none">
-        {Object.entries(pages).map(([pageId, page]) => (
+      {/* Touch/Scroll Guide - Only shown initially */}
+      <AnimatePresence>
+        {showGuide && (
           <motion.div
-            key={pageId}
-            animate={{
-              scale: currentPage === pageId ? 1.2 : 1,
-              opacity: currentPage === pageId ? 1 : 0.4
-            }}
-            className={`w-2 h-2 rounded-full transition-colors duration-200 ${
-              isDark ? 'bg-white' : 'bg-gray-800'
-            }`}
-          />
-        ))}
-      </div>
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed inset-x-0 bottom-12 z-40 pointer-events-none"
+          >
+            <div className="flex flex-col items-center justify-center gap-3">
+              {/* Visual Guide */}
+              <motion.div
+                animate={{
+                  y: [0, -8, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className={`w-5 h-8 rounded-full border-2 ${
+                  isDark ? 'border-white/30' : 'border-black/30'
+                } flex justify-center pt-1`}
+              >
+                <motion.div
+                  animate={{
+                    y: [0, 12, 0],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className={`w-1 h-1 rounded-full ${
+                    isDark ? 'bg-white/50' : 'bg-black/50'
+                  }`}
+                />
+              </motion.div>
+              
+              {/* Text Guide */}
+              <span className={`text-sm ${
+                isDark ? 'text-white/50' : 'text-black/50'
+              }`}>
+                Scroll or swipe to navigate
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 } 
