@@ -12,6 +12,9 @@ export default function PageTransition({ children }: { children: React.ReactNode
   const containerRef = useRef<HTMLDivElement>(null)
   const [showGuide, setShowGuide] = useState(true)
   const [touchStart, setTouchStart] = useState<number | null>(null)
+  const isNavigatingRef = useRef(false)
+  const lastNavigationTime = useRef(Date.now())
+  const navigationCooldown = 600 // ms
   
   useEffect(() => {
     const container = containerRef.current
@@ -22,32 +25,64 @@ export default function PageTransition({ children }: { children: React.ReactNode
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault()
-      if (Math.abs(e.deltaY) < 30) return
+      
+      const now = Date.now()
+      if (isNavigatingRef.current || Math.abs(e.deltaY) < 30 || 
+          now - lastNavigationTime.current < navigationCooldown) return
+      
       setShowGuide(false)
+      isNavigatingRef.current = true
+      lastNavigationTime.current = now
+      
       const direction = e.deltaY > 0 ? 'down' : 'up'
       navigateToPage(direction)
+      
+      // Reset navigation flag after cooldown
+      setTimeout(() => {
+        isNavigatingRef.current = false
+      }, navigationCooldown)
     }
 
     const handleTouchStart = (e: TouchEvent) => {
+      if (isNavigatingRef.current) return
       touchStartY = e.touches[0].clientY
       setTouchStart(e.touches[0].clientY)
     }
 
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault()
+      
+      const now = Date.now()
+      if (isNavigatingRef.current || !touchStartY || 
+          now - lastNavigationTime.current < navigationCooldown) return
+      
       const touchEndY = e.touches[0].clientY
       const distance = touchStartY - touchEndY
 
       if (Math.abs(distance) >= minSwipeDistance) {
         setShowGuide(false)
+        isNavigatingRef.current = true
+        lastNavigationTime.current = now
+        
         const direction = distance > 0 ? 'down' : 'up'
         navigateToPage(direction)
+        
+        // Reset navigation flag after cooldown
+        setTimeout(() => {
+          isNavigatingRef.current = false
+        }, navigationCooldown)
       }
+    }
+
+    const handleTouchEnd = () => {
+      touchStartY = 0
+      setTouchStart(null)
     }
 
     container.addEventListener('wheel', handleWheel, { passive: false })
     container.addEventListener('touchstart', handleTouchStart)
     container.addEventListener('touchmove', handleTouchMove, { passive: false })
+    container.addEventListener('touchend', handleTouchEnd)
 
     // Hide guide after 5 seconds
     const timer = setTimeout(() => setShowGuide(false), 5000)
@@ -56,6 +91,7 @@ export default function PageTransition({ children }: { children: React.ReactNode
       container.removeEventListener('wheel', handleWheel)
       container.removeEventListener('touchstart', handleTouchStart)
       container.removeEventListener('touchmove', handleTouchMove)
+      container.removeEventListener('touchend', handleTouchEnd)
       clearTimeout(timer)
     }
   }, [navigateToPage])
@@ -68,9 +104,14 @@ export default function PageTransition({ children }: { children: React.ReactNode
           <motion.button
             key={pageId}
             onClick={() => {
-              if (currentPage === pageId) return
+              if (currentPage === pageId || isNavigatingRef.current) return
               setShowGuide(false)
+              isNavigatingRef.current = true
               navigateToPage(pageId === pages[currentPage].next ? 'down' : 'up')
+              // Reset navigation flag after cooldown
+              setTimeout(() => {
+                isNavigatingRef.current = false
+              }, navigationCooldown)
             }}
             animate={{
               scale: currentPage === pageId ? 1 : 0.8,

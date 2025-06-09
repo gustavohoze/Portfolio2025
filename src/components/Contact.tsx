@@ -1,11 +1,24 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useTheme } from './ThemeContext'
 import PageBackground from './PageBackground'
 import ThemeButton from './ThemeButton'
 import gsap from 'gsap'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
+import emailjs from '@emailjs/browser'
+import { emailConfig } from '@/config/emailjs'
+
+type FormData = {
+  name: string
+  email: string
+  message: string
+}
+
+type NotificationType = {
+  type: 'success' | 'error'
+  message: string
+}
 
 export default function Contact() {
   const { isDark } = useTheme()
@@ -15,6 +28,119 @@ export default function Contact() {
   const subtitleRef = useRef<HTMLParagraphElement>(null)
   const contactInfoRef = useRef<HTMLDivElement>(null)
   const socialMediaRef = useRef<HTMLDivElement>(null)
+  const animationRef = useRef<gsap.Context | null>(null)
+  const cleanupFunctionsRef = useRef<(() => void)[]>([])
+  const notificationTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [notification, setNotification] = useState<NotificationType | null>(null)
+  const [formData, setFormData] = useState<FormData>({
+    name: '',
+    email: '',
+    message: ''
+  })
+
+  // Clear notification with timeout
+  const showNotification = useCallback((type: 'success' | 'error', message: string) => {
+    setNotification({ type, message })
+    
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current)
+    }
+    
+    notificationTimeoutRef.current = setTimeout(() => {
+      setNotification(null)
+      notificationTimeoutRef.current = undefined
+    }, 5000)
+  }, [])
+
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (isSubmitting) return
+
+    try {
+      setIsSubmitting(true)
+
+      // Initialize EmailJS with your public key
+      emailjs.init(emailConfig.publicKey)
+
+      // Send auto-reply email to the sender
+      await emailjs.send(
+        emailConfig.serviceId,
+        emailConfig.autoReplyTemplateId,
+        {
+          to_name: formData.name,
+          to_email: formData.email,
+          from_name: "Gustavo",
+          from_email: "gustaveronic@gmail.com",
+          message: formData.message,
+          reply_to: formData.email
+        }
+      )
+
+      // Send the actual message to you
+      await emailjs.send(
+        emailConfig.serviceId,
+        emailConfig.contactFormTemplateId,
+        {
+          from_name: formData.name,
+          from_email: formData.email,
+          message: formData.message,
+          to_name: "Gustavo",
+          to_email: "gustaveronic@gmail.com",
+          reply_to: formData.email
+        }
+      )
+
+      // Show success notification and reset form
+      showNotification('success', 'Message sent successfully! Please check your email.')
+      setFormData({
+        name: '',
+        email: '',
+        message: ''
+      })
+
+    } catch (error) {
+      console.error('Failed to send email:', error)
+      showNotification('error', 'Failed to send message. Please try again later.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Cleanup function
+  const cleanup = useCallback(() => {
+    if (notificationTimeoutRef.current) {
+      clearTimeout(notificationTimeoutRef.current)
+      notificationTimeoutRef.current = undefined
+    }
+    
+    setIsSubmitting(false)
+    setNotification(null)
+    
+    if (animationRef.current) {
+      animationRef.current.revert()
+      animationRef.current = null
+    }
+    
+    cleanupFunctionsRef.current.forEach(cleanup => cleanup())
+    cleanupFunctionsRef.current = []
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return cleanup
+  }, [cleanup])
 
   useEffect(() => {
     // GSAP animations
@@ -89,25 +215,55 @@ export default function Contact() {
       if (formRef.current) {
         const inputs = formRef.current.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')
         inputs.forEach((input) => {
-          input.addEventListener('focus', () => {
+          const handleFocus = () => {
             gsap.to(input, {
               scale: 1.02,
               duration: 0.3,
               ease: "power2.out"
             })
-          })
-          input.addEventListener('blur', () => {
+          }
+
+          const handleBlur = () => {
             gsap.to(input, {
               scale: 1,
               duration: 0.3,
               ease: "power2.out"
             })
+          }
+
+          input.addEventListener('focus', handleFocus)
+          input.addEventListener('blur', handleBlur)
+
+          cleanupFunctionsRef.current.push(() => {
+            input.removeEventListener('focus', handleFocus)
+            input.removeEventListener('blur', handleBlur)
           })
         })
       }
-    }, formRef)
+    })
 
-    return () => ctx.revert() // Cleanup animations
+    // Store the context for cleanup
+    animationRef.current = ctx
+
+    return () => {
+      // Clear any pending notification timeout
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current)
+      }
+      
+      // Reset states
+      setIsSubmitting(false)
+      setNotification(null)
+      
+      // Clean up GSAP animations
+      if (animationRef.current) {
+        animationRef.current.revert()
+      }
+      
+      // Clear other cleanup functions
+      cleanupFunctionsRef.current.forEach(cleanup => cleanup())
+      cleanupFunctionsRef.current = []
+    }
   }, [])
 
   return (
@@ -117,6 +273,24 @@ export default function Contact() {
       <ThemeButton className="fixed top-6 right-6 z-50" />
       <PageBackground variant="contact" />
       
+      {/* Notification */}
+      <AnimatePresence mode="wait">
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`fixed left-1/2 -translate-x-1/2 mx-auto top-6 z-50 px-6 py-3 rounded-lg shadow-lg ${
+              notification.type === 'success' 
+                ? (isDark ? 'bg-green-500/90' : 'bg-green-600') 
+                : (isDark ? 'bg-red-500/90' : 'bg-red-600')
+            } text-white text-sm sm:text-base font-medium backdrop-blur-sm w-[90%] max-w-md text-center`}
+          >
+            {notification.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           <h2 ref={titleRef} className={`text-3xl sm:text-4xl font-bold ${
@@ -281,13 +455,21 @@ export default function Contact() {
           </div>
 
           {/* Right Column - Contact Form */}
-          <form ref={formRef} className={`p-5 rounded-lg ${
-            isDark ? 'bg-gray-900/50' : 'bg-white'
-          } shadow-xl backdrop-blur-sm space-y-4`}>
+          <form 
+            ref={formRef} 
+            onSubmit={handleSubmit}
+            className={`p-5 rounded-lg ${
+              isDark ? 'bg-gray-900/50' : 'bg-white'
+            } shadow-xl backdrop-blur-sm space-y-4 flex flex-col max-h-[600px]`}
+          >
             <div>
               <label className="block text-sm font-medium mb-1">Name</label>
               <input
                 type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                required
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark 
                     ? 'bg-gray-800 border-gray-700 focus:border-cyan-500' 
@@ -299,6 +481,10 @@ export default function Contact() {
               <label className="block text-sm font-medium mb-1">Email</label>
               <input
                 type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
                 className={`w-full px-4 py-2 rounded-lg border ${
                   isDark 
                     ? 'bg-gray-800 border-gray-700 focus:border-cyan-500' 
@@ -306,27 +492,42 @@ export default function Contact() {
                 } focus:ring-2 focus:ring-cyan-500/20 outline-none transition-all duration-300`}
               />
             </div>
-            <div>
+            <div className="flex-1 min-h-0">
               <label className="block text-sm font-medium mb-1">Message</label>
               <textarea
+                name="message"
+                value={formData.message}
+                onChange={handleInputChange}
+                required
                 rows={4}
-                className={`w-full px-4 py-2 rounded-lg border ${
+                className={`w-full px-4 py-2 rounded-lg border resize-y ${
                   isDark 
                     ? 'bg-gray-800 border-gray-700 focus:border-cyan-500' 
                     : 'bg-white border-gray-300 focus:border-cyan-500'
-                } focus:ring-2 focus:ring-cyan-500/20 outline-none transition-all duration-300`}
+                } focus:ring-2 focus:ring-cyan-500/20 outline-none transition-all duration-300 min-h-[100px] max-h-[200px]`}
               />
             </div>
-            <button
-              type="submit"
-              className={`w-full py-2 px-4 rounded-lg ${
-                isDark
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400'
-                  : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500'
-              } text-white font-medium transition-all duration-300 transform hover:scale-[1.02]`}
-            >
-              Send Message
-            </button>
+            <div className="flex-shrink-0 pt-2">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`w-full py-2 px-4 rounded-lg ${
+                  isDark
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400'
+                    : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500'
+                } text-white font-medium transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Sending...
+                  </span>
+                ) : 'Send Message'}
+              </button>
+            </div>
           </form>
         </div>
       </div>

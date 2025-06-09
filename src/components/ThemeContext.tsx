@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 
 interface ThemeContextType {
   isDark: boolean;
@@ -21,6 +21,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isDark, setIsDark] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Initialize theme from localStorage on mount
   useEffect(() => {
@@ -38,6 +39,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const toggleTheme = useCallback(() => {
     if (isTransitioning) return;
+    
+    // Clear any existing transition timeout
+    if (transitionTimeoutRef.current) {
+      clearTimeout(transitionTimeoutRef.current);
+    }
+
     setIsTransitioning(true);
     
     setIsDark(prev => {
@@ -46,7 +53,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return newTheme;
     });
     
-    setTimeout(() => {
+    transitionTimeoutRef.current = setTimeout(() => {
       setIsTransitioning(false);
     }, 400);
   }, [isTransitioning]);
@@ -61,6 +68,20 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
   }, [isDark, mounted]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Don't render until after hydration
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <ThemeContext.Provider value={{ isDark, isTransitioning, toggleTheme }}>

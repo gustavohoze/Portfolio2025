@@ -1,6 +1,6 @@
 'use client'
 
-import { PageProvider, usePage } from '@/components/PageContext'
+import { usePage } from '@/components/PageContext'
 import PageTransition from '@/components/PageTransition'
 import Layout from '@/components/Layout'
 import Hero from '@/components/Hero'
@@ -25,10 +25,8 @@ function PageContent() {
 
 export default function Home() {
   return (
-    <PageProvider>
-      <Layout>
-        <PageContent />
-      </Layout>
-    </PageProvider>
+    <Layout>
+      <PageContent />
+    </Layout>
   )
 } 

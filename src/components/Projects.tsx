@@ -108,18 +108,21 @@ export default function Projects() {
 
   // Helper function to render card content
   const renderCard = (project: Project, index: number) => (
-    <>
+    <div className="relative w-full h-full">
       {/* Card Front */}
       <div 
-        className={`absolute inset-0 rounded-2xl cursor-pointer preserve-3d backface-hidden backdrop-blur-md p-[2px] transition-shadow duration-300 ${
+        className={`absolute inset-0 w-full h-full rounded-2xl cursor-pointer backdrop-blur-md p-[2px] transition-shadow duration-300 ${
           isDark 
             ? 'bg-white/10 shadow-[0_0_15px_rgba(0,0,0,0.3)] hover:shadow-[0_0_30px_rgba(0,0,0,0.5)]'
             : 'bg-white/80 shadow-[0_0_15px_rgba(0,0,0,0.1)] hover:shadow-[0_0_30px_rgba(0,0,0,0.2)]'
         }`}
         style={{
-          transformStyle: 'preserve-3d',
           transform: `rotateY(${isFlipped[index] ? '180deg' : '0deg'})`,
-          transition: 'transform 0.6s'
+          transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+          position: 'absolute',
+          zIndex: isFlipped[index] ? 0 : 1
         }}
       >
         <div className={`h-full rounded-2xl overflow-hidden ${
@@ -197,15 +200,18 @@ export default function Projects() {
 
       {/* Card Back */}
       <div 
-        className={`absolute inset-0 rounded-2xl transform-gpu backface-hidden p-[2px] shadow-[0_0_15px_rgba(0,0,0,0.3)] ${
+        className={`absolute inset-0 w-full h-full rounded-2xl p-[2px] shadow-[0_0_15px_rgba(0,0,0,0.3)] ${
           isDark
             ? 'bg-gradient-to-br from-violet-600 to-fuchsia-600'
             : 'bg-gradient-to-br from-violet-500 to-fuchsia-500'
         }`}
         style={{
-          transformStyle: 'preserve-3d',
           transform: `rotateY(${isFlipped[index] ? '0deg' : '-180deg'})`,
-          transition: 'transform 0.6s'
+          transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+          position: 'absolute',
+          zIndex: isFlipped[index] ? 1 : 0
         }}
       >
         <div className="h-full w-full rounded-2xl overflow-hidden">
@@ -231,7 +237,7 @@ export default function Projects() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 
   useEffect(() => {
@@ -263,26 +269,31 @@ export default function Projects() {
     setIsShuffling(true)
     setHoveredCard(null)
   
-    // Phase 1: Flip all cards face down
-    setIsFlipped(new Array(projects.length).fill(true))
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    // Phase 2: Shuffle
-    const shuffled = [...projects].sort(() => Math.random() - 0.5)
-    setProjects(shuffled)
-    
-    if (screenSize === 'sm') {
-      setMobileProject(Math.floor(Math.random() * shuffled.length))
+    try {
+      // Phase 1: Flip all cards face down
+      setIsFlipped(new Array(projects.length).fill(true))
+      await new Promise(resolve => setTimeout(resolve, 400))
+      
+      // Phase 2: Shuffle
+      const shuffled = [...projects].sort(() => Math.random() - 0.5)
+      setProjects(shuffled)
+      
+      if (screenSize === 'sm') {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        setMobileProject(Math.floor(Math.random() * shuffled.length))
+      }
+      
+      // Phase 3: Wait for layout to settle
+      await new Promise(resolve => setTimeout(resolve, 600))
+      
+      // Phase 4: Unflip cards
+      setIsFlipped(new Array(projects.length).fill(false))
+      
+      // Phase 5: End shuffle state after animation completes
+      await new Promise(resolve => setTimeout(resolve, 400))
+    } finally {
+      setIsShuffling(false)
     }
-    
-    await new Promise(resolve => setTimeout(resolve, 600))
-    
-    // Phase 3: Unflip cards
-    setIsFlipped(new Array(projects.length).fill(false))
-    
-    // Phase 4: End shuffle state
-    await new Promise(resolve => setTimeout(resolve, 300))
-    setIsShuffling(false)
   }
 
   const handleCardClick = (project: Project) => {
@@ -322,47 +333,51 @@ export default function Projects() {
           <div className="relative w-full max-w-7xl h-[400px] sm:h-[450px]">
             <div className="absolute inset-0 flex items-center justify-center">
               {screenSize === 'sm' ? (
-                // Mobile View - Single Card
-                <AnimatePresence mode="popLayout">
+                // Mobile View - Single Card with improved transitions
+                <AnimatePresence mode="wait">
                   <motion.div
                     key={projects[mobileProject].id}
-                    className="preserve-3d"
+                    className="relative"
                     style={{
                       width: CARD_SIZES[screenSize].width,
                       height: CARD_SIZES[screenSize].height,
+                      transformStyle: 'preserve-3d',
+                      WebkitTransformStyle: 'preserve-3d',
                     }}
                     initial={{ opacity: 0, scale: 0.8, y: 50 }}
                     animate={{
                       opacity: 1,
                       scale: isShuffling ? 0.85 : 1,
                       y: 0,
-                      rotateY: isFlipped[mobileProject] ? 180 : 0,
                       rotateZ: isShuffling ? (Math.random() - 0.5) * 15 : 0,
                     }}
                     exit={{ opacity: 0, scale: 0.8, y: -50 }}
                     transition={{
-                      duration: 0.3,
-                      ease: "easeInOut"
+                      duration: 0.4,
+                      ease: [0.23, 1, 0.32, 1],
+                      layout: { duration: 0.4 }
                     }}
-                    onClick={() => handleCardClick(projects[mobileProject])}
+                    onClick={() => !isShuffling && handleCardClick(projects[mobileProject])}
                   >
                     {renderCard(projects[mobileProject], mobileProject)}
                   </motion.div>
                 </AnimatePresence>
               ) : (
                 // Desktop View - Card Spread
-                <div className="relative perspective-[1200px]" style={{ width: '100%', height: '100%' }}>
+                <div className="relative" style={{ width: '100%', height: '100%', perspective: '1200px' }}>
                   <AnimatePresence mode="sync">
                     {projects.map((project, index) => (
                       <motion.div
                         key={project.id}
-                        className="absolute top-1/2 left-1/2 preserve-3d"
+                        className="absolute top-1/2 left-1/2"
                         style={{
                           width: CARD_SIZES[screenSize].width,
                           height: CARD_SIZES[screenSize].height,
                           marginLeft: -CARD_SIZES[screenSize].width / 2,
                           marginTop: -CARD_SIZES[screenSize].height / 2,
                           zIndex: hoveredCard === project.id ? 20 : isShuffling ? 10 + index : 10 - index,
+                          transformStyle: 'preserve-3d',
+                          WebkitTransformStyle: 'preserve-3d',
                         }}
                         initial={{ opacity: 0, x: 0, scale: 0.8, y: 50 }}
                         animate={{
@@ -370,7 +385,6 @@ export default function Projects() {
                           x: isShuffling ? 0 : CARD_SPREAD[screenSize][index],
                           y: 0,
                           scale: isShuffling ? 0.85 : (hoveredCard === project.id ? 1.1 : 1),
-                          rotateY: isFlipped[index] ? 180 : 0,
                           rotateZ: isShuffling ? (Math.random() - 0.5) * 15 : 0,
                         }}
                         exit={{ opacity: 0, scale: 0.8, y: -50 }}
@@ -562,20 +576,6 @@ export default function Projects() {
           </div>
         )}
       </AnimatePresence>
-
-      <style jsx global>{`
-        .perspective-[1200px] {
-          perspective: 1200px;
-        }
-        .preserve-3d {
-          transform-style: preserve-3d;
-          -webkit-transform-style: preserve-3d;
-        }
-        .backface-hidden {
-          backface-visibility: hidden;
-          -webkit-backface-visibility: hidden;
-        }
-      `}</style>
     </div>
   )
 } 

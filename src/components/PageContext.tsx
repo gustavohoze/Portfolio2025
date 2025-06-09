@@ -1,113 +1,88 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
+import React, { createContext, useContext, useState, useCallback } from 'react'
 
-type Page = {
-  id: string;
-  component: React.ReactNode;
-  next: string;
-  prev: string;
-}
-
-type PageContextType = {
-  currentPage: string;
-  isTransitioning: boolean;
-  direction: 'up' | 'down' | null;
-  navigateToPage: (direction: 'up' | 'down') => void;
-}
-
-const PageContext = createContext<PageContextType>({
-  currentPage: 'hero',
-  isTransitioning: false,
-  direction: null,
-  navigateToPage: () => {},
-})
-
-export const pages: Record<string, Page> = {
+export const pages = {
   hero: {
-    id: 'hero',
-    component: null, // We'll set this when using the provider
     next: 'projects',
     prev: 'contact'
   },
   projects: {
-    id: 'projects',
-    component: null,
     next: 'contact',
     prev: 'hero'
   },
   contact: {
-    id: 'contact',
-    component: null,
     next: 'hero',
     prev: 'projects'
   }
+} as const
+
+type PageType = keyof typeof pages
+type DirectionType = 'up' | 'down' | PageType
+
+interface PageContextType {
+  currentPage: PageType
+  isTransitioning: boolean
+  direction: 'up' | 'down'
+  navigateToPage: (direction: DirectionType) => void
 }
 
+const PageContext = createContext<PageContextType | null>(null)
+
 export function PageProvider({ children }: { children: React.ReactNode }) {
-  const [currentPage, setCurrentPage] = useState(() => {
-    // Initialize from localStorage if available, otherwise default to 'hero'
-    if (typeof window !== 'undefined') {
-      const savedPage = localStorage.getItem('currentPage')
-      return savedPage || 'hero'
-    }
-    return 'hero'
-  })
+  const [currentPage, setCurrentPage] = useState<PageType>('hero')
   const [isTransitioning, setIsTransitioning] = useState(false)
-  const [direction, setDirection] = useState<'up' | 'down' | null>(null)
-  const transitionTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
-  const lastScrollTime = useRef(Date.now())
-  const scrollCooldown = 600 // Reduced cooldown for springy animations
+  const [direction, setDirection] = useState<'up' | 'down'>('down')
 
-  // Save current page to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('currentPage', currentPage)
-    }
-  }, [currentPage])
-
-  const navigateToPage = useCallback((direction: 'up' | 'down') => {
+  const navigateToPage = useCallback((input: DirectionType) => {
     if (isTransitioning) return
 
-    const now = Date.now()
-    if (now - lastScrollTime.current < scrollCooldown) return
-    lastScrollTime.current = now
+    let nextPage: PageType
+    let newDirection: 'up' | 'down'
 
-    setIsTransitioning(true)
-    setDirection(direction)
-
-    const nextPageId = direction === 'up' 
-      ? pages[currentPage].prev 
-      : pages[currentPage].next
-
-    // Clear any existing timeout
-    if (transitionTimeoutRef.current) {
-      clearTimeout(transitionTimeoutRef.current)
-    }
-
-    // Set the next page
-    transitionTimeoutRef.current = setTimeout(() => {
-      setCurrentPage(nextPageId)
-      setIsTransitioning(false)
-      setDirection(null)
-    }, 500)
-  }, [currentPage, isTransitioning])
-
-  // Cleanup on unmount
-  React.useEffect(() => {
-    return () => {
-      if (transitionTimeoutRef.current) {
-        clearTimeout(transitionTimeoutRef.current)
+    if (input === 'up' || input === 'down') {
+      nextPage = input === 'up' ? pages[currentPage].prev : pages[currentPage].next
+      newDirection = input
+    } else {
+      // Handle direct page navigation
+      if (input === currentPage) return
+      
+      // Find the shortest path to the target page
+      const pageOrder = ['hero', 'projects', 'contact'] as const
+      const currentIndex = pageOrder.indexOf(currentPage)
+      const targetIndex = pageOrder.indexOf(input)
+      
+      // Determine if going up or down would be shorter
+      const distanceDown = (targetIndex - currentIndex + pageOrder.length) % pageOrder.length
+      const distanceUp = (currentIndex - targetIndex + pageOrder.length) % pageOrder.length
+      
+      if (distanceDown <= distanceUp) {
+        nextPage = input
+        newDirection = 'down'
+      } else {
+        nextPage = input
+        newDirection = 'up'
       }
     }
-  }, [])
+
+    setIsTransitioning(true)
+    setDirection(newDirection)
+    setCurrentPage(nextPage)
+
+    // Reset transition state after animation
+    const timer = setTimeout(() => {
+      setIsTransitioning(false)
+    }, 300) // Match animation duration
+
+    return () => clearTimeout(timer)
+  }, [currentPage, isTransitioning])
 
   return (
-    <PageContext.Provider value={{ 
-      currentPage, 
-      isTransitioning, 
+    <PageContext.Provider value={{
+      currentPage,
+      isTransitioning,
       direction,
-      navigateToPage 
+      navigateToPage
     }}>
       {children}
     </PageContext.Provider>
